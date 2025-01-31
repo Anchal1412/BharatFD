@@ -1,36 +1,19 @@
-const mongoose = require('mongoose');
+const redis = require('../config/redis');
 
-const faqSchema = new mongoose.Schema({
-  question: {
-    type: String,
-    required: true,
-  },
-  answer: {
-    type: String,
-    required: true,
-  },
-  translations: {
-    type: Map,
-    of: {
-      question: String,
-      answer: String
+const cacheMiddleware = async (req, res, next) => {
+  try {
+    const lang = req.query.lang || 'en';
+    const cacheKey = `faqs:${lang}`;
+    
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return res.json(JSON.parse(cachedData));
     }
+    
+    next();
+  } catch (error) {
+    next(error);
   }
-}, { timestamps: true });
-
-// Method to get translated content
-faqSchema.methods.getTranslation = function(lang) {
-  if (lang === 'en') {
-    return {
-      question: this.question,
-      answer: this.answer
-    };
-  }
-  return this.translations.get(lang) || {
-    question: this.question,
-    answer: this.answer
-  };
 };
 
-const FAQ = mongoose.model('FAQ', faqSchema);
-module.exports = FAQ;
+module.exports = cacheMiddleware;
